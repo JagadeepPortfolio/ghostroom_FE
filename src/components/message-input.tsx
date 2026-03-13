@@ -62,7 +62,6 @@ export default function MessageInput({
     const lastAtIndex = value.lastIndexOf("@");
     if (lastAtIndex !== -1) {
       const afterAt = value.slice(lastAtIndex + 1);
-      // Only show if no space after @
       if (!afterAt.includes(" ")) {
         setShowMentions(true);
         setMentionFilter(afterAt);
@@ -87,7 +86,7 @@ export default function MessageInput({
   }, []);
 
   return (
-    <div className="relative px-4 py-3 border-t border-white/10">
+    <div className="relative px-3 py-2 sm:px-4 sm:py-3 border-t border-white/10 safe-bottom">
       <AnimatePresence>
         {showMentions && (
           <MentionPopup
@@ -104,7 +103,7 @@ export default function MessageInput({
         </div>
       )}
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
         <input
           ref={inputRef}
           type="text"
@@ -113,12 +112,13 @@ export default function MessageInput({
           onKeyDown={handleKeyDown}
           placeholder="Type a message..."
           maxLength={2000}
-          className="flex-1 px-4 py-3 rounded-xl bg-white/10 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-purple-500/40 transition-all text-sm"
+          autoComplete="off"
+          className="flex-1 px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl bg-white/10 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-purple-500/40 transition-all text-base"
         />
         <button
           onClick={handleSend}
           disabled={!text.trim()}
-          className="px-5 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-30 disabled:cursor-not-allowed text-white font-semibold text-sm transition-all"
+          className="px-4 py-2.5 sm:px-5 sm:py-3 rounded-xl bg-purple-600 hover:bg-purple-500 active:bg-purple-700 disabled:opacity-30 disabled:cursor-not-allowed text-white font-semibold text-sm transition-all flex-shrink-0"
         >
           Send
         </button>

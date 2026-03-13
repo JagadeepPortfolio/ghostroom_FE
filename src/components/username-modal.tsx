@@ -21,14 +21,16 @@ export default function UsernameModal({ onSubmit, error, checking }: UsernameMod
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm safe-bottom">
       <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="w-full max-w-sm mx-4 p-6 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl"
+        initial={{ scale: 0.95, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        className="w-full max-w-sm mx-4 mb-4 sm:mb-0 p-6 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl"
       >
         <h2 className="text-2xl font-bold text-white mb-2">Enter the Room</h2>
-        <p className="text-white/60 text-sm mb-6">Choose a display name to get started.</p>
+        <p className="text-white/60 text-sm mb-6">
+          Choose a display name to get started.
+        </p>
 
         <form onSubmit={handleSubmit}>
           <input
@@ -38,17 +40,17 @@ export default function UsernameModal({ onSubmit, error, checking }: UsernameMod
             placeholder="Your name..."
             maxLength={30}
             autoFocus
-            className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
+            autoComplete="off"
+            autoCapitalize="words"
+            className="w-full px-4 py-3.5 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-base"
           />
 
-          {error && (
-            <p className="mt-2 text-red-400 text-sm">{error}</p>
-          )}
+          {error && <p className="mt-2 text-red-400 text-sm">{error}</p>}
 
           <button
             type="submit"
             disabled={!name.trim() || checking}
-            className="mt-4 w-full py-3 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold transition-all"
+            className="mt-4 w-full py-3.5 rounded-xl bg-purple-600 hover:bg-purple-500 active:bg-purple-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold transition-all text-base"
           >
             {checking ? "Checking..." : "Join"}
           </button>

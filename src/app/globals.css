@@ -3,6 +3,16 @@
 body {
   min-height: 100dvh;
   background: linear-gradient(135deg, #0f0c29 0%, #1a1a2e 50%, #16213e 100%);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Safe area insets for notched phones */
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* Custom scrollbar */
@@ -17,4 +27,16 @@ body {
 .scrollbar-thin::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 999px;
+}
+
+/* Prevent iOS bounce scroll on body */
+html, body {
+  overscroll-behavior: none;
+}
+
+/* Fix iOS input zoom */
+@media screen and (max-width: 640px) {
+  input, textarea {
+    font-size: 16px !important;
+  }
 }

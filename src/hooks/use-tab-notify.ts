@@ -4,12 +4,18 @@ import { useEffect, useRef, useCallback } from "react";
 
 export function useTabNotify() {
   const unreadCount = useRef(0);
-  const originalTitle = useRef("GhostRoom");
 
   const addUnread = useCallback(() => {
     if (document.visibilityState === "hidden") {
       unreadCount.current += 1;
       document.title = `(${unreadCount.current}) GhostRoom`;
+
+      // Android PWA badge
+      if ("setAppBadge" in navigator) {
+        (navigator as unknown as { setAppBadge: (n: number) => void }).setAppBadge(
+          unreadCount.current
+        );
+      }
     }
   }, []);
 
@@ -17,7 +23,12 @@ export function useTabNotify() {
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
         unreadCount.current = 0;
-        document.title = originalTitle.current;
+        document.title = "GhostRoom";
+
+        // Clear Android PWA badge
+        if ("clearAppBadge" in navigator) {
+          (navigator as unknown as { clearAppBadge: () => void }).clearAppBadge();
+        }
       }
     };
 

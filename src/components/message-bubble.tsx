@@ -34,7 +34,8 @@ export default function MessageBubble({
   onBurned,
 }: MessageBubbleProps) {
   const isSender = message.sender === currentUser;
-  const hasRead = !!message.readBy[currentUser];
+  const myReadTimestamp = message.readBy[currentUser];
+  const hasRead = !!myReadTimestamp;
   const hasMarkedRead = useRef(false);
 
   const handleBurn = useCallback(() => {
@@ -51,17 +52,31 @@ export default function MessageBubble({
     }
   }, [isSender, hasRead, message.id, onRead]);
 
-  // Start burn timer once we've read it
+  // Start burn timer once read — but NOT for sender's own messages
+  // Sender's messages burn only when ALL others have read (triggered by readBy update)
   useEffect(() => {
-    if (hasRead) {
-      startBurn();
+    if (isSender) {
+      // Sender: start burn only when at least one other person has read
+      const otherReaders = Object.entries(message.readBy).filter(
+        ([name]) => name !== currentUser
+      );
+      if (otherReaders.length > 0) {
+        // Use the latest read timestamp from others
+        const latestRead = Math.max(...otherReaders.map(([, ts]) => ts));
+        startBurn(latestRead);
+      }
+    } else if (hasRead && myReadTimestamp) {
+      startBurn(myReadTimestamp);
     }
-  }, [hasRead, startBurn]);
+  }, [isSender, hasRead, myReadTimestamp, message.readBy, currentUser, startBurn]);
 
   return (
     <AnimatePresence mode="wait">
       {burning ? (
-        <motion.div key={`burn-${message.id}`} className="flex justify-center py-2">
+        <motion.div
+          key={`burn-${message.id}`}
+          className="flex justify-center py-2"
+        >
           <BurnAnimation />
         </motion.div>
       ) : (
@@ -74,11 +89,12 @@ export default function MessageBubble({
           className={`flex ${isSender ? "justify-end" : "justify-start"} mb-3`}
         >
           <div
-            className={`max-w-[75%] rounded-2xl px-4 py-2.5 ${
+            className={`max-w-[75%] rounded-2xl px-4 py-2.5 break-words ${
               isSender
                 ? "bg-purple-600/40 backdrop-blur-md border border-purple-400/20"
                 : "bg-white/10 backdrop-blur-md border border-white/10"
             }`}
+            style={{ overflowWrap: "break-word", wordBreak: "break-word" }}
           >
             {!isSender && (
               <p className="text-xs font-semibold text-purple-300 mb-1">
@@ -90,7 +106,8 @@ export default function MessageBubble({
               {renderTextWithMentions(message.text)}
             </p>
 
-            {hasRead && secondsLeft > 0 && (
+            {/* Countdown — sender sees it only after others read */}
+            {!burning && secondsLeft > 0 && secondsLeft < 10 && (
               <div className="flex items-center gap-1 mt-1.5 text-xs text-white/40">
                 <span>💣</span>
                 <span>{secondsLeft}s</span>

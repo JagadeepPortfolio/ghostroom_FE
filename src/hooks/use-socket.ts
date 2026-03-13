@@ -2,9 +2,19 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
+import { v4 as uuidv4 } from "uuid";
 import { Message } from "@/types";
 
 const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:3001";
+
+function getSessionId(): string {
+  let sessionId = localStorage.getItem("ghostroom_session_id");
+  if (!sessionId) {
+    sessionId = uuidv4();
+    localStorage.setItem("ghostroom_session_id", sessionId);
+  }
+  return sessionId;
+}
 
 export function useSocket(roomId: string, username: string | null) {
   const socketRef = useRef<Socket | null>(null);
@@ -17,9 +27,13 @@ export function useSocket(roomId: string, username: string | null) {
   const [joined, setJoined] = useState(false);
 
   const typingTimeoutRef = useRef<Record<string, NodeJS.Timeout>>({});
+  const sessionIdRef = useRef<string>("");
 
   useEffect(() => {
     if (!username) return;
+
+    const sessionId = getSessionId();
+    sessionIdRef.current = sessionId;
 
     const socket = io(SERVER_URL, { transports: ["websocket", "polling"] });
     socketRef.current = socket;
@@ -27,10 +41,10 @@ export function useSocket(roomId: string, username: string | null) {
     socket.on("connect", () => {
       setConnected(true);
 
-      // Join the room
+      // Join the room with sessionId
       socket.emit(
         "join_room",
-        { roomId, username },
+        { roomId, username, sessionId },
         (res: { success: boolean; error?: string }) => {
           if (res.success) {
             setJoined(true);
@@ -47,17 +61,32 @@ export function useSocket(roomId: string, username: string | null) {
       setJoined(false);
     });
 
+    // Existing messages on rejoin
+    socket.on("existing_messages", (msgs: Message[]) => {
+      setMessages(msgs);
+    });
+
     socket.on("room_users", (users: string[]) => {
       setOnlineUsers(users);
     });
 
     socket.on("new_message", (message: Message) => {
-      setMessages((prev) => [...prev, message]);
+      setMessages((prev) => {
+        // Avoid duplicates (in case of reconnect race)
+        if (prev.some((m) => m.id === message.id)) return prev;
+        return [...prev, message];
+      });
     });
 
     socket.on(
       "message_read_ack",
-      ({ messageId, readBy }: { messageId: string; readBy: Record<string, number> }) => {
+      ({
+        messageId,
+        readBy,
+      }: {
+        messageId: string;
+        readBy: Record<string, number>;
+      }) => {
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === messageId ? { ...msg, readBy } : msg
@@ -66,26 +95,31 @@ export function useSocket(roomId: string, username: string | null) {
       }
     );
 
-    socket.on("user_typing", ({ username: typingUser }: { username: string }) => {
-      setTypingUsers((prev) =>
-        prev.includes(typingUser) ? prev : [...prev, typingUser]
-      );
+    socket.on(
+      "user_typing",
+      ({ username: typingUser }: { username: string }) => {
+        setTypingUsers((prev) =>
+          prev.includes(typingUser) ? prev : [...prev, typingUser]
+        );
 
-      // Clear after 3 seconds
-      if (typingTimeoutRef.current[typingUser]) {
-        clearTimeout(typingTimeoutRef.current[typingUser]);
+        if (typingTimeoutRef.current[typingUser]) {
+          clearTimeout(typingTimeoutRef.current[typingUser]);
+        }
+        typingTimeoutRef.current[typingUser] = setTimeout(() => {
+          setTypingUsers((prev) => prev.filter((u) => u !== typingUser));
+        }, 3000);
       }
-      typingTimeoutRef.current[typingUser] = setTimeout(() => {
+    );
+
+    socket.on(
+      "user_stop_typing",
+      ({ username: typingUser }: { username: string }) => {
         setTypingUsers((prev) => prev.filter((u) => u !== typingUser));
-      }, 3000);
-    });
-
-    socket.on("user_stop_typing", ({ username: typingUser }: { username: string }) => {
-      setTypingUsers((prev) => prev.filter((u) => u !== typingUser));
-      if (typingTimeoutRef.current[typingUser]) {
-        clearTimeout(typingTimeoutRef.current[typingUser]);
+        if (typingTimeoutRef.current[typingUser]) {
+          clearTimeout(typingTimeoutRef.current[typingUser]);
+        }
       }
-    });
+    );
 
     socket.on("rate_limited", () => {
       setRateLimited(true);
@@ -109,7 +143,11 @@ export function useSocket(roomId: string, username: string | null) {
   const markRead = useCallback(
     (messageId: string) => {
       if (!username) return;
-      socketRef.current?.emit("message_read", { roomId, messageId, username });
+      socketRef.current?.emit("message_read", {
+        roomId,
+        messageId,
+        username,
+      });
     },
     [roomId, username]
   );
@@ -131,13 +169,15 @@ export function useSocket(roomId: string, username: string | null) {
   const checkUsername = useCallback(
     (name: string): Promise<boolean> => {
       return new Promise((resolve) => {
+        const sessionId = getSessionId();
         if (!socketRef.current?.connected) {
-          // Create a temporary socket for checking
-          const tempSocket = io(SERVER_URL, { transports: ["websocket", "polling"] });
+          const tempSocket = io(SERVER_URL, {
+            transports: ["websocket", "polling"],
+          });
           tempSocket.on("connect", () => {
             tempSocket.emit(
               "check_username",
-              { roomId, username: name },
+              { roomId, username: name, sessionId },
               (res: { available: boolean }) => {
                 tempSocket.disconnect();
                 resolve(res.available);
@@ -148,7 +188,7 @@ export function useSocket(roomId: string, username: string | null) {
         }
         socketRef.current.emit(
           "check_username",
-          { roomId, username: name },
+          { roomId, username: name, sessionId },
           (res: { available: boolean }) => {
             resolve(res.available);
           }
@@ -157,34 +197,6 @@ export function useSocket(roomId: string, username: string | null) {
     },
     [roomId]
   );
-
-  const checkRoom = useCallback((): Promise<boolean> => {
-    return new Promise((resolve) => {
-      const tempSocket = io(SERVER_URL, { transports: ["websocket", "polling"] });
-      tempSocket.on("connect", () => {
-        tempSocket.emit(
-          "check_room",
-          { roomId },
-          (res: { exists: boolean }) => {
-            tempSocket.disconnect();
-            resolve(res.exists);
-          }
-        );
-      });
-    });
-  }, [roomId]);
-
-  const createRoom = useCallback((): Promise<string> => {
-    return new Promise((resolve) => {
-      const tempSocket = io(SERVER_URL, { transports: ["websocket", "polling"] });
-      tempSocket.on("connect", () => {
-        tempSocket.emit("create_room", (res: { roomId: string }) => {
-          tempSocket.disconnect();
-          resolve(res.roomId);
-        });
-      });
-    });
-  }, []);
 
   return {
     connected,
@@ -200,7 +212,5 @@ export function useSocket(roomId: string, username: string | null) {
     emitTypingStop,
     removeMessage,
     checkUsername,
-    checkRoom,
-    createRoom,
   };
 }

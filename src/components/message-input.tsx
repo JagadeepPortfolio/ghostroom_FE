@@ -100,7 +100,7 @@ export default function MessageInput({
 
       {rateLimited && (
         <div className="absolute -top-8 left-4 text-red-400 text-xs font-medium">
-          Slow down.
+          Slow down. Try again in a few seconds.
         </div>
       )}
 

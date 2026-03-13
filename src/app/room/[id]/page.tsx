@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import { useSocket } from "@/hooks/use-socket";
+import { useTabNotify } from "@/hooks/use-tab-notify";
 import UsernameModal from "@/components/username-modal";
 import ChatArea from "@/components/chat-area";
 import MessageInput from "@/components/message-input";
@@ -33,6 +34,17 @@ export default function RoomPage() {
     removeMessage,
     checkUsername,
   } = useSocket(roomId, username);
+
+  const { addUnread } = useTabNotify();
+  const prevMessageCount = useRef(0);
+
+  // Tab notification for new messages
+  useEffect(() => {
+    if (messages.length > prevMessageCount.current && prevMessageCount.current > 0) {
+      addUnread();
+    }
+    prevMessageCount.current = messages.length;
+  }, [messages.length, addUnread]);
 
   // On mount, check localStorage for existing username or show modal
   useEffect(() => {

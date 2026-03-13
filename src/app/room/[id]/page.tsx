@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { motion } from "framer-motion";
 import { useSocket } from "@/hooks/use-socket";
 import UsernameModal from "@/components/username-modal";
 import ChatArea from "@/components/chat-area";
@@ -18,7 +17,6 @@ export default function RoomPage() {
   const [showModal, setShowModal] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
   const [modalChecking, setModalChecking] = useState(false);
-  const [roomExists, setRoomExists] = useState<boolean | null>(null);
 
   const {
     connected,
@@ -34,24 +32,17 @@ export default function RoomPage() {
     emitTypingStop,
     removeMessage,
     checkUsername,
-    checkRoom,
   } = useSocket(roomId, username);
 
-  // Check if room exists
+  // On mount, check localStorage for existing username or show modal
   useEffect(() => {
-    checkRoom().then((exists) => {
-      setRoomExists(exists);
-      if (exists) {
-        // Check localStorage for existing username
-        const stored = localStorage.getItem("ghostroom_username");
-        if (stored) {
-          setUsername(stored);
-        } else {
-          setShowModal(true);
-        }
-      }
-    });
-  }, [checkRoom]);
+    const stored = localStorage.getItem("ghostroom_username");
+    if (stored) {
+      setUsername(stored);
+    } else {
+      setShowModal(true);
+    }
+  }, []);
 
   // Handle join errors (e.g., username taken from localStorage)
   useEffect(() => {
@@ -82,37 +73,6 @@ export default function RoomPage() {
     },
     [checkUsername]
   );
-
-  // Room not found
-  if (roomExists === false) {
-    return (
-      <div className="min-h-dvh flex items-center justify-center">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-center"
-        >
-          <h1 className="text-4xl font-bold text-white mb-3">Room Not Found</h1>
-          <p className="text-white/40 mb-6">This room doesn&apos;t exist or has been dissolved.</p>
-          <a
-            href="/"
-            className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold transition-all"
-          >
-            Create a New Room
-          </a>
-        </motion.div>
-      </div>
-    );
-  }
-
-  // Loading
-  if (roomExists === null) {
-    return (
-      <div className="min-h-dvh flex items-center justify-center">
-        <div className="text-white/40">Connecting...</div>
-      </div>
-    );
-  }
 
   return (
     <div className="h-dvh flex flex-col">
